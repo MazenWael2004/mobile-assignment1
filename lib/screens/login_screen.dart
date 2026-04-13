@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:student_task_management/core/validators/auth_validators.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -9,6 +10,19 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  
 
   @override
   Widget build(BuildContext context) {
@@ -36,31 +50,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
                       border: UnderlineInputBorder(),
                       labelText: "Email",
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter some text';
-                      }
-                      return null;
-                    },
+                    validator: AuthValidators.validateFciEmail,
                   ),
                   SizedBox(height: 20),
                   TextFormField(
-                    obscureText: true,
+                    obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       border: UnderlineInputBorder(),
                       labelText: "Password",
                       
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter some text';
-                      }
-                      return null;
-                    },
+                    validator: AuthValidators.validatePassword,
                   ),
                   SizedBox(height: 40),
                   SizedBox(
@@ -111,7 +117,9 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text("Don't have an account?"),
-                TextButton(onPressed: () {}, child: Text("Sign up"))
+                TextButton(onPressed: () {
+                  Navigator.pushNamed(context, "/register");
+                }, child: Text("Sign up"))
               ],
             )
           ],
