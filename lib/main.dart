@@ -10,7 +10,7 @@ import './screens/task_screens.dart';
 
 void main() {
   runApp(MaterialApp(
-    initialRoute: '/',
+    initialRoute: '/login',
     routes:  {
         // 2. TEMPORARILY bypass login by making TaskListScreen the default '/' route
         "/": (context) => const TaskListScreen(), 

@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../models/user_model.dart';
 import '../models/task_model.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:io';
@@ -46,7 +47,16 @@ Future<Database> _initDatabase() async {
         dueDate TEXT NOT NULL,
         priority TEXT NOT NULL,
         isCompleted INTEGER NOT NULL DEFAULT 0
-      )
+      );
+
+      CREATE TABLE users(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fullName TEXT NOT NULL,
+        universityEmail TEXT NOT NULL UNIQUE,
+        studentID INTEGER NOT NULL UNIQUE,
+        gender TEXT,
+        profilePictureUrl TEXT
+      );
     ''');
     
  
@@ -94,4 +104,60 @@ Future<Database> _initDatabase() async {
       whereArgs: [id],
     );
   }
+
+  // ==========================================
+  // CRUD Operations for Users
+  // ==========================================
+
+  Future<int> insertUser(User user) async {
+    Database db = await instance.database;
+    return await db.insert('users', userToMap(user));
+  }
+
+  Future<List<User>> getUsers() async {
+    Database db = await instance.database;
+    var users = await db.query('users', orderBy: 'id DESC');
+    
+    List<User> userList = users.isNotEmpty
+        ? users.map((c) => userFromMap(c)).toList()
+        : [];
+    return userList;
+  }
+
+  Future<User?> getUserByID(int studentID) async {
+    Database db = await instance.database;
+    var users = await db.query(
+      'users',
+      where: 'studentID = ?',
+      whereArgs: [studentID],
+    );
+    
+    if (users.isNotEmpty) {
+      return userFromMap(users.first);
+    } else {
+      return null; // No user found with the given student ID
+    }
+  }
+
+  Future<int> updateUser(User user) async {
+    Database db = await instance.database;
+    return await db.update(
+      'users',
+      userToMap(user),
+      where: 'id = ?', 
+      whereArgs: [user.studentID],
+    );
+  }
+
+  Future<int> deleteUser(int studentID) async {
+    Database db = await instance.database;
+    return await db.delete(
+      'users',
+      where: 'studentID = ?',
+      whereArgs: [studentID],
+    );
+  }
+
+
+
 }

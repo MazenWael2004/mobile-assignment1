@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../core/validators/auth_validators.dart';
+import '../models/user_model.dart';
+import '../services/database_operations.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,6 +21,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       TextEditingController(); // Controller for the student ID input field
   final _universityEmailController =
       TextEditingController(); // Controller for the university email input field
+  final _genderController =
+      TextEditingController(); // Controller for the gender
+  final _levelController =
+      TextEditingController(); // Controller for the level (optional) input field
   final _confirmPasswordController =
       TextEditingController(); // Controller for the confirm password input field
   final _passwordController =
@@ -24,7 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true; // State variable to toggle password visibility
   bool _obscureConfirmPassword =
       true; // State variable to toggle confirm password visibility
-  int? _selectedGender; // Optional field
+  String? _selectedGender; // Optional field
   int? _selectedLevel; // Optional field
 
   /// Validates email format and cross-checks email prefix with student ID.
@@ -46,16 +55,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
-  void _handleRadioValueChange(int? value) {
-    setState(() {
-      _selectedGender = value!;
-      print(
-        "Selected Gender: $_selectedGender",
-      ); // Update the selected gender value and trigger a rebuild to reflect the change in the UI
-    });
-  }
+  void _handleRadioValueChange(String? value) {
+  if (value == null) return;
+
+  setState(() {
+    _selectedGender = value;
+    _genderController.text = value; // optional (for submit)
+    print( "Selected Gender: ${_genderController.text}" );
+  });
+}
 
   void handleFullNameChange(String value) {
+    
     print("Full Name: $value"); // Handle changes to the full name input field
   }
 
@@ -67,6 +78,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void handleStudentIdChange(String value) {
     print("Student ID: $value"); // Handle changes to the student ID input field
+  }
+
+ void handleLevelChange(int? value) {
+  setState(() {
+    _selectedLevel = value;
+    _levelController.text = value?.toString() ?? '';
+  });
+
+  print("Selected Level: $_selectedLevel");
+}
+  void _handleSubmit() async{
+    if (_formKey.currentState!.validate()) {
+      // ✅ all fields valid, proceed with registration logic
+      final newUser = User(
+        fullName: _nameController.text.trim(),
+        password: _passwordController.text.trim(),
+        universityEmail: _universityEmailController.text.trim(),
+        gender: _genderController.text.trim(),
+        profilePictureUrl: null,
+        level: _selectedLevel,
+        studentID: int.parse(_studentIdController.text.trim()),
+      );
+
+      final prefs = await SharedPreferences.getInstance(); // Get shared preferences instance FOR STORING CURRENT USER ID
+      await prefs.setInt('currentUserId', newUser.studentID); // Store the current user's student ID in shared preferences
+
+      try {
+        final dbHelper = DatabaseHelper.instance;
+        final db = await dbHelper.database;
+
+        await db.insert(
+          'users',
+          userToMap(newUser),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } catch (e) {
+        print("Error occurred while inserting user: $e");
+      }
+
+      // Snackbar to show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registration successful!')),
+      );
+
+      print("Form is valid. User registered: ${newUser.fullName}, ${newUser.universityEmail}, ${newUser.studentID}");
+      // You can also navigate to another screen or reset the form here if needed.
+     Navigator.pushNamed(context, '/');
+
+    }
+
+    else {
+      print("Form is invalid");
+    }
   }
 
   @override
@@ -121,13 +185,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Column(
                     children: [
                       RadioListTile(
-                        value: 0,
+                        value: 'Male',
                         groupValue: _selectedGender,
                         onChanged: _handleRadioValueChange,
                         title: Text("Male"),
                       ),
                       RadioListTile(
-                        value: 1,
+                        value: 'Female',
                         groupValue: _selectedGender,
                         onChanged: _handleRadioValueChange,
                         title: Text("Female"),
@@ -245,12 +309,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     height: 40,
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          // ✅ all fields valid, proceed
-                          print("Form is valid");
-                        }
-                      },
+                      onPressed: _handleSubmit,
                       style: ButtonStyle(
                         backgroundColor: WidgetStatePropertyAll(
                           Color.fromARGB(255, 39, 103, 176),
