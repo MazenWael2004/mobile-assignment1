@@ -91,6 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _handleSubmit() async{
     if (_formKey.currentState!.validate()) {
       // ✅ all fields valid, proceed with registration logic
+      
       final newUser = User(
         fullName: _nameController.text.trim(),
         password: _passwordController.text.trim(),
@@ -137,13 +138,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 30),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             IconButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(context); 
               },
               icon: Icon(Icons.arrow_back_ios),
             ),

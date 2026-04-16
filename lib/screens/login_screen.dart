@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:student_task_management/core/validators/auth_validators.dart';
+import '../core/validators/auth_validators.dart';
+import '../models/user_model.dart';
+import '../services/database_operations.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,6 +26,43 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+
+void _attemptLogin()async {
+  if (_formKey.currentState!.validate()) {
+    // If the form is valid, display a snackbar. In the real world,
+    // you'd often call a server or save the information in a database.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Processing Data')),
+    );
+    final db = await DatabaseHelper.instance.database;
+    final result = await db.query(
+      'users',
+      where: 'universityEmail = ? AND password = ?',
+      whereArgs: [_emailController.text, _passwordController.text],
+    );
+
+    if(result.isNotEmpty){
+      // Login successful, save user ID in shared preferences
+      final user = userFromMap(result.first);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('currentUserId', user.studentID);
+
+      // Navigate to the main task screen
+      Navigator.pushReplacementNamed(context, '/');
+    } else {
+      // Login failed, show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid email or password')),
+      );
+    }
+  }
+  else{
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fix the errors in red before submitting.')),
+    );
+  }
+}
+  
   
 
   @override
@@ -61,6 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(height: 20),
                   TextFormField(
                     obscureText: _obscurePassword,
+                    controller: _passwordController,
                     decoration: InputDecoration(
                       border: UnderlineInputBorder(),
                       labelText: "Password",
@@ -72,16 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // Validate returns true if the form is valid, or false otherwise.
-                        if (_formKey.currentState!.validate()) {
-                          // If the form is valid, display a snackbar. In the real world,
-                          // you'd often call a server or save the information in a database.
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Processing Data')),
-                          );
-                        }
-                      },
+                      onPressed: _attemptLogin,
                       style: ButtonStyle(
                         backgroundColor: WidgetStateProperty.all(
                           const Color.fromARGB(255, 39, 103, 176),

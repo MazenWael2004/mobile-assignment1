@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../models/user_model.dart';
 import 'dart:io';
+import '../services/database_operations.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({Key? key}) : super(key: key);
@@ -11,6 +15,7 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final Color primaryBlue = const Color(0xFF2864A6);
+  User? _currentUser; 
   
   // Image Picker state
   File? _profileImage;
@@ -30,12 +35,48 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData(); // Load user data when the screen initializes
+
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final int? userId = prefs.getInt('currentUserId');
+
+    if(userId == null){
+      // No user logged in, handle this case (e.g., navigate to login)
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+
+     final db = await DatabaseHelper.instance.database;
+      final result = await db.query(
+      'users',
+      where: 'studentID = ?',
+      whereArgs: [userId],
+    );
+
+    if (result.isNotEmpty) {
+      setState(() {
+        _currentUser = userFromMap(result.first); // your mapping function
+          _nameController.text = _currentUser!.fullName;
+          _emailController.text = _currentUser!.universityEmail;
+          _idController.text = _currentUser!.studentID.toString();
+          _profileImage = _currentUser!.profilePictureUrl != null ? File(_currentUser!.profilePictureUrl!) : null;
+      });
+    }
+  }
+
   // Pick Image Function
   Future<void> _pickImage(ImageSource source) async {
     final XFile? pickedFile = await _picker.pickImage(source: source);
     if (pickedFile != null) {
       setState(() {
         _profileImage = File(pickedFile.path);
+        _currentUser?.profilePictureUrl = pickedFile.path; // Update the user's profile picture URL in memory
       });
     }
   }

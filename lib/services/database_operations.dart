@@ -38,29 +38,31 @@ Future<Database> _initDatabase() async {
   }
 
   // Create the Tasks table
-  Future _onCreate(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE tasks(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        description TEXT,
-        dueDate TEXT NOT NULL,
-        priority TEXT NOT NULL,
-        isCompleted INTEGER NOT NULL DEFAULT 0
-      );
+ Future _onCreate(Database db, int version) async {
+  await db.execute('''
+    CREATE TABLE tasks(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      dueDate TEXT NOT NULL,
+      priority TEXT NOT NULL,
+      isCompleted INTEGER NOT NULL DEFAULT 0
+    )
+  ''');
 
-      CREATE TABLE users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fullName TEXT NOT NULL,
-        universityEmail TEXT NOT NULL UNIQUE,
-        studentID INTEGER NOT NULL UNIQUE,
-        gender TEXT,
-        profilePictureUrl TEXT
-      );
-    ''');
-    
- 
-  }
+  await db.execute('''
+    CREATE TABLE users(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fullName TEXT NOT NULL,
+      universityEmail TEXT NOT NULL UNIQUE,
+      studentID INTEGER NOT NULL UNIQUE,
+      gender TEXT,
+      level INTEGER,
+      profilePictureUrl TEXT,
+      password TEXT NOT NULL
+    )
+  ''');
+}
 
   // ==========================================
   // CRUD Operations for Tasks

@@ -7,8 +7,18 @@ import './screens/login_screen.dart';
 import './screens/register_screen.dart';
 // 1. Point to the file we just created
 import './screens/task_screens.dart'; 
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
 
-void main() {
+
+
+void main() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+
+  final dbPath = await getDatabasesPath();
+  await deleteDatabase(join(dbPath, 'student_tasks.db'));
+
   runApp(MaterialApp(
     initialRoute: '/login',
     routes:  {
