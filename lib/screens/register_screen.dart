@@ -88,10 +88,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   print("Selected Level: $_selectedLevel");
 }
-  void _handleSubmit() async{
+void _handleSubmit() async {
     if (_formKey.currentState!.validate()) {
-      // ✅ all fields valid, proceed with registration logic
-      
+      // All fields valid, proceed with registration logic
       final newUser = User(
         fullName: _nameController.text.trim(),
         password: _passwordController.text.trim(),
@@ -102,10 +101,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         studentID: int.parse(_studentIdController.text.trim()),
       );
 
-      final prefs = await SharedPreferences.getInstance(); // Get shared preferences instance FOR STORING CURRENT USER ID
-      await prefs.setInt('currentUserId', newUser.studentID); // Store the current user's student ID in shared preferences
-
       try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('currentUserId', newUser.studentID);
+
         final dbHelper = DatabaseHelper.instance;
         final db = await dbHelper.database;
 
@@ -118,29 +117,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
         print("Error occurred while inserting user: $e");
       }
 
-      // Snackbar to show success message
+      // CRITICAL: Always check if mounted after an await before touching the UI
+      if (!mounted) return; 
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Registration successful!')),
+        const SnackBar(content: Text('Registration successful!')),
       );
 
-      print("Form is valid. User registered: ${newUser.fullName}, ${newUser.universityEmail}, ${newUser.studentID}");
-      // You can also navigate to another screen or reset the form here if needed.
-     Navigator.pushNamed(context, '/');
-
-    }
-
-    else {
+      print("User registered: ${newUser.fullName}");
+      
+      // FIXED ROUTING: Go to the tasks screen and prevent going back to register
+      Navigator.pushReplacementNamed(context, '/tasks');
+    } else {
       print("Form is invalid");
     }
   }
-
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 30),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SingleChildScrollView( // <-- Added this widget
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 30),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             IconButton(
               onPressed: () {
@@ -334,6 +333,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
       ),
+    ),
     );
   }
-}
+  }

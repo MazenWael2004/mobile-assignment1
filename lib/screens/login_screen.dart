@@ -26,43 +26,42 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-
-void _attemptLogin()async {
-  if (_formKey.currentState!.validate()) {
-    // If the form is valid, display a snackbar. In the real world,
-    // you'd often call a server or save the information in a database.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Processing Data')),
-    );
-    final db = await DatabaseHelper.instance.database;
-    final result = await db.query(
-      'users',
-      where: 'universityEmail = ? AND password = ?',
-      whereArgs: [_emailController.text, _passwordController.text],
-    );
-
-    if(result.isNotEmpty){
-      // Login successful, save user ID in shared preferences
-      final user = userFromMap(result.first);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('currentUserId', user.studentID);
-
-      // Navigate to the main task screen
-      Navigator.pushReplacementNamed(context, '/');
-    } else {
-      // Login failed, show error message
+void _attemptLogin() async {
+    if (_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid email or password')),
+        const SnackBar(content: Text('Processing Data')),
+      );
+      
+      final db = await DatabaseHelper.instance.database;
+      final result = await db.query(
+        'users',
+        where: 'universityEmail = ? AND password = ?',
+        whereArgs: [_emailController.text, _passwordController.text],
+      );
+
+      // CRITICAL: Always check if mounted after an await before touching the UI
+      if (!mounted) return;
+
+      if(result.isNotEmpty){
+        // Login successful, save user ID in shared preferences
+        final user = userFromMap(result.first);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('currentUserId', user.studentID);
+
+        // FIXED ROUTING: Navigate to the main task screen
+        Navigator.pushReplacementNamed(context, '/tasks');
+      } else {
+        // Login failed, show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid email or password')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fix the errors before submitting.')),
       );
     }
   }
-  else{
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please fix the errors in red before submitting.')),
-    );
-  }
-}
-  
   
 
   @override
