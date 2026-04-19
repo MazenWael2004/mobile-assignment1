@@ -146,7 +146,7 @@ Future<Database> _initDatabase() async {
     return await db.update(
       'users',
       userToMap(user),
-      where: 'id = ?', 
+      where: 'studentID = ?', 
       whereArgs: [user.studentID],
     );
   }

@@ -67,6 +67,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           _idController.text = _currentUser!.studentID.toString();
           _profileImage = _currentUser!.profilePictureUrl != null ? File(_currentUser!.profilePictureUrl!) : null;
       });
+
+        // 👇 Add this
+  print("✅ User loaded: ${_currentUser!.fullName} | ${_currentUser!.universityEmail} | ID: ${_currentUser!.studentID} | Photo: ${_currentUser!.profilePictureUrl}");
     }
   }
 
@@ -115,10 +118,31 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   // The Logout Function
   void _logout() {
     // 1. You would normally clear the user session/login state here
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.remove('currentUserId'); // Clear the logged-in user ID
+      });
     
     // 2. Navigate to Login and destroy the back-history so they can't hit "Back" to re-enter
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
+
+Future<void> _saveProfileUpdates() async {
+  if (_currentUser == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Error: No user loaded'), backgroundColor: Colors.red),
+    );
+    return;
+  }
+
+  _currentUser!.fullName = _nameController.text;
+  _currentUser!.profilePictureUrl = _profileImage?.path;
+
+  await DatabaseHelper.instance.updateUser(_currentUser!);
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Profile Updated Successfully')),
+  );
+}
 
   // Input Field Styling (Matching your Signup screen)
   InputDecoration _inputDecoration(String label) {
@@ -210,12 +234,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Save updated Name/Photo to SQLite database
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Profile Updated Successfully')),
-                  );
-                },
+                onPressed: _saveProfileUpdates,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlue,
                   padding: const EdgeInsets.symmetric(vertical: 16),
