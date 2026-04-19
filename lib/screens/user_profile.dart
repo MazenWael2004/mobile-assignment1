@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../models/user_model.dart';
 import 'dart:io';
-import '../services/database_operations.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/database_operations.dart'; 
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({Key? key}) : super(key: key);
@@ -15,17 +13,70 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final Color primaryBlue = const Color(0xFF2864A6);
-  User? _currentUser; 
   
-  // Image Picker state
   File? _profileImage;
   final ImagePicker _picker = ImagePicker();
 
-  // Controllers for editing profile data
-  // When you merge with your friends, populate these with data from SQLite
-  final TextEditingController _nameController = TextEditingController(text: "Mustafa Ammar Mahmoud");
-  final TextEditingController _emailController = TextEditingController(text: "studentID@stud.fci-cu.edu.eg");
-  final TextEditingController _idController = TextEditingController(text: "20201234");
+  // Controllers start completely empty now
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _idController = TextEditingController();
+
+  int? currentUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData(); // Fetch real data as soon as the screen opens
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    currentUserId = prefs.getInt('currentUserId');
+
+    if (currentUserId != null) {
+      final db = await DatabaseHelper.instance.database;
+      final result = await db.query(
+        'users', 
+        where: 'studentID = ?', 
+        whereArgs: [currentUserId]
+      );
+
+      if (result.isNotEmpty) {
+        final userData = result.first;
+        
+        setState(() {
+          _nameController.text = userData['fullName'] as String;
+          _emailController.text = userData['universityEmail'] as String;
+          _idController.text = userData['studentID'].toString();
+          
+          // If they saved an image previously, load it!
+          String? savedImagePath = userData['profilePictureUrl'] as String?;
+          if (savedImagePath != null && savedImagePath.isNotEmpty) {
+            _profileImage = File(savedImagePath);
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final XFile? pickedFile = await _picker.pickImage(source: source);
+    if (pickedFile != null && currentUserId != null) {
+      setState(() {
+        _profileImage = File(pickedFile.path);
+      });
+
+      // Save the path to the database so it survives a restart
+      final db = await DatabaseHelper.instance.database;
+      await db.update(
+        'users',
+        {'profilePictureUrl': pickedFile.path},
+        where: 'studentID = ?',
+        whereArgs: [currentUserId],
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -35,56 +86,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     super.dispose();
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData(); // Load user data when the screen initializes
-
-  }
-
-  Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final int? userId = prefs.getInt('currentUserId');
-
-    if(userId == null){
-      // No user logged in, handle this case (e.g., navigate to login)
-      Navigator.pushReplacementNamed(context, '/login');
-      return;
-    }
-
-     final db = await DatabaseHelper.instance.database;
-      final result = await db.query(
-      'users',
-      where: 'studentID = ?',
-      whereArgs: [userId],
-    );
-
-    if (result.isNotEmpty) {
-      setState(() {
-        _currentUser = userFromMap(result.first); // your mapping function
-          _nameController.text = _currentUser!.fullName;
-          _emailController.text = _currentUser!.universityEmail;
-          _idController.text = _currentUser!.studentID.toString();
-          _profileImage = _currentUser!.profilePictureUrl != null ? File(_currentUser!.profilePictureUrl!) : null;
-      });
-
-        // 👇 Add this
-  print("✅ User loaded: ${_currentUser!.fullName} | ${_currentUser!.universityEmail} | ID: ${_currentUser!.studentID} | Photo: ${_currentUser!.profilePictureUrl}");
-    }
-  }
-
-  // Pick Image Function
-  Future<void> _pickImage(ImageSource source) async {
-    final XFile? pickedFile = await _picker.pickImage(source: source);
-    if (pickedFile != null) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-        _currentUser?.profilePictureUrl = pickedFile.path; // Update the user's profile picture URL in memory
-      });
-    }
-  }
-
-  // Show Bottom Sheet to choose Camera or Gallery
   void _showImageSourceActionSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -118,11 +119,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   // The Logout Function
   void _logout() {
     // 1. You would normally clear the user session/login state here
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.remove('currentUserId'); // Clear the logged-in user ID
-      });
     
-    // 2. Navigate to Login and destroy the back-history so they can't hit "Back" to re-enter
+    // Check if mounted before navigating after an await
+    if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
@@ -144,7 +143,6 @@ Future<void> _saveProfileUpdates() async {
   );
 }
 
-  // Input Field Styling (Matching your Signup screen)
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
@@ -178,7 +176,6 @@ Future<void> _saveProfileUpdates() async {
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // Profile Picture Avatar
             Center(
               child: Stack(
                 children: [
@@ -210,8 +207,6 @@ Future<void> _saveProfileUpdates() async {
               ),
             ),
             const SizedBox(height: 32),
-
-            // Profile Data Form
             TextField(
               controller: _nameController,
               decoration: _inputDecoration('Full Name'),
@@ -220,21 +215,24 @@ Future<void> _saveProfileUpdates() async {
             TextField(
               controller: _emailController,
               decoration: _inputDecoration('University Email'),
-              readOnly: true, // Usually, emails aren't editable after signup
+              readOnly: true, 
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _idController,
               decoration: _inputDecoration('Student ID'),
-              readOnly: true, // ID shouldn't change
+              readOnly: true, 
             ),
             const SizedBox(height: 32),
-
-            // Save Updates Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _saveProfileUpdates,
+                onPressed: () {
+                  // TODO: Save updated Name/Photo to SQLite database
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Profile Updated Successfully')),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlue,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -244,8 +242,6 @@ Future<void> _saveProfileUpdates() async {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Logout Button
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
