@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/database_operations.dart'; 
+import '../../services/database_operations.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({Key? key}) : super(key: key);
@@ -13,11 +13,10 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final Color primaryBlue = const Color(0xFF2864A6);
-  
+
   File? _profileImage;
   final ImagePicker _picker = ImagePicker();
 
-  // Controllers start completely empty now
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _idController = TextEditingController();
@@ -27,55 +26,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData(); // Fetch real data as soon as the screen opens
-  }
-
-  Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    currentUserId = prefs.getInt('currentUserId');
-
-    if (currentUserId != null) {
-      final db = await DatabaseHelper.instance.database;
-      final result = await db.query(
-        'users', 
-        where: 'studentID = ?', 
-        whereArgs: [currentUserId]
-      );
-
-      if (result.isNotEmpty) {
-        final userData = result.first;
-        
-        setState(() {
-          _nameController.text = userData['fullName'] as String;
-          _emailController.text = userData['universityEmail'] as String;
-          _idController.text = userData['studentID'].toString();
-          
-          // If they saved an image previously, load it!
-          String? savedImagePath = userData['profilePictureUrl'] as String?;
-          if (savedImagePath != null && savedImagePath.isNotEmpty) {
-            _profileImage = File(savedImagePath);
-          }
-        });
-      }
-    }
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-    final XFile? pickedFile = await _picker.pickImage(source: source);
-    if (pickedFile != null && currentUserId != null) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-      });
-
-      // Save the path to the database so it survives a restart
-      final db = await DatabaseHelper.instance.database;
-      await db.update(
-        'users',
-        {'profilePictureUrl': pickedFile.path},
-        where: 'studentID = ?',
-        whereArgs: [currentUserId],
-      );
-    }
+    _loadUserData();
   }
 
   @override
@@ -84,6 +35,77 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _emailController.dispose();
     _idController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    currentUserId = prefs.getInt('currentUserId');
+
+    if (currentUserId == null) {
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+
+    final db = await DatabaseHelper.instance.database;
+    final result = await db.query('users', where: 'studentID = ?', whereArgs: [currentUserId]);
+
+    if (result.isNotEmpty) {
+      final userData = result.first;
+      setState(() {
+        _nameController.text = userData['fullName'] as String;
+        _emailController.text = userData['universityEmail'] as String;
+        _idController.text = userData['studentID'].toString();
+        String? savedImagePath = userData['profilePictureUrl'] as String?;
+        if (savedImagePath != null && savedImagePath.isNotEmpty) {
+          _profileImage = File(savedImagePath);
+        }
+      });
+      print("✅ User loaded: ${userData['fullName']} | ID: $currentUserId");
+    } else {
+      print("⚠️ No user found for ID: $currentUserId");
+    }
+  }
+
+  Future<void> _saveProfileUpdates() async {
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: No user loaded'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final db = await DatabaseHelper.instance.database;
+    final rows = await db.update(
+      'users',
+      {
+        'fullName': _nameController.text,
+        'profilePictureUrl': _profileImage?.path,
+      },
+      where: 'studentID = ?',
+      whereArgs: [currentUserId],
+    );
+
+    print("💾 Rows updated: $rows");
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(rows > 0 ? 'Profile Updated Successfully' : 'Update failed')),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final XFile? pickedFile = await _picker.pickImage(source: source);
+    if (pickedFile != null && currentUserId != null) {
+      setState(() => _profileImage = File(pickedFile.path));
+
+      final db = await DatabaseHelper.instance.database;
+      await db.update(
+        'users',
+        {'profilePictureUrl': pickedFile.path},
+        where: 'studentID = ?',
+        whereArgs: [currentUserId],
+      );
+    }
   }
 
   void _showImageSourceActionSheet(BuildContext context) {
@@ -96,18 +118,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: const Text('Photo Library'),
-                onTap: () {
-                  _pickImage(ImageSource.gallery);
-                  Navigator.of(context).pop();
-                },
+                onTap: () { _pickImage(ImageSource.gallery); Navigator.of(context).pop(); },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_camera),
                 title: const Text('Camera'),
-                onTap: () {
-                  _pickImage(ImageSource.camera);
-                  Navigator.of(context).pop();
-                },
+                onTap: () { _pickImage(ImageSource.camera); Navigator.of(context).pop(); },
               ),
             ],
           ),
@@ -116,32 +132,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  // The Logout Function
-  void _logout() {
-    // 1. You would normally clear the user session/login state here
-    
-    // Check if mounted before navigating after an await
+  void _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.remove('currentUserId');
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
-
-Future<void> _saveProfileUpdates() async {
-  if (_currentUser == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Error: No user loaded'), backgroundColor: Colors.red),
-    );
-    return;
-  }
-
-  _currentUser!.fullName = _nameController.text;
-  _currentUser!.profilePictureUrl = _profileImage?.path;
-
-  await DatabaseHelper.instance.updateUser(_currentUser!);
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Profile Updated Successfully')),
-  );
-}
 
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
@@ -167,10 +163,7 @@ Future<void> _saveProfileUpdates() async {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        title: const Text(
-          'My Profile',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('My Profile', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -183,13 +176,10 @@ Future<void> _saveProfileUpdates() async {
                     radius: 60,
                     backgroundColor: Colors.grey.shade300,
                     backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
-                    child: _profileImage == null
-                        ? Icon(Icons.person, size: 60, color: Colors.grey.shade600)
-                        : null,
+                    child: _profileImage == null ? Icon(Icons.person, size: 60, color: Colors.grey.shade600) : null,
                   ),
                   Positioned(
-                    bottom: 0,
-                    right: 0,
+                    bottom: 0, right: 0,
                     child: InkWell(
                       onTap: () => _showImageSourceActionSheet(context),
                       child: Container(
@@ -207,32 +197,16 @@ Future<void> _saveProfileUpdates() async {
               ),
             ),
             const SizedBox(height: 32),
-            TextField(
-              controller: _nameController,
-              decoration: _inputDecoration('Full Name'),
-            ),
+            TextField(controller: _nameController, decoration: _inputDecoration('Full Name')),
             const SizedBox(height: 16),
-            TextField(
-              controller: _emailController,
-              decoration: _inputDecoration('University Email'),
-              readOnly: true, 
-            ),
+            TextField(controller: _emailController, decoration: _inputDecoration('University Email'), readOnly: true),
             const SizedBox(height: 16),
-            TextField(
-              controller: _idController,
-              decoration: _inputDecoration('Student ID'),
-              readOnly: true, 
-            ),
+            TextField(controller: _idController, decoration: _inputDecoration('Student ID'), readOnly: true),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Save updated Name/Photo to SQLite database
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Profile Updated Successfully')),
-                  );
-                },
+                onPressed: _saveProfileUpdates, // ✅ actually calls save now
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlue,
                   padding: const EdgeInsets.symmetric(vertical: 16),
