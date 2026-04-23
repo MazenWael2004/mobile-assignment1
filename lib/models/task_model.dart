@@ -5,6 +5,7 @@ class Task {
   String dueDate; 
   String priority; 
   int isCompleted; 
+  int isFavorite;
 
   //constructor
   Task({
@@ -14,6 +15,7 @@ class Task {
     required this.dueDate,
     required this.priority,
     this.isCompleted = 0, 
+    this.isFavorite=0
   });
 
   // Convert a Task object into a Map. 
@@ -26,6 +28,7 @@ class Task {
       'dueDate': dueDate,
       'priority': priority,
       'isCompleted': isCompleted,
+      'isFavorite':isFavorite
     };
   }
 
@@ -39,6 +42,7 @@ class Task {
       dueDate: map['dueDate'],
       priority: map['priority'],
       isCompleted: map['isCompleted'],
+      isFavorite: map['isFavorite']??0
     );
   }
 }

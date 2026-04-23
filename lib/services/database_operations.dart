@@ -46,7 +46,8 @@ Future<Database> _initDatabase() async {
       description TEXT,
       dueDate TEXT NOT NULL,
       priority TEXT NOT NULL,
-      isCompleted INTEGER NOT NULL DEFAULT 0
+      isCompleted INTEGER NOT NULL DEFAULT 0,
+      isFavorite INTERGER NOT NULL DEFAULT 0
     )
   ''');
 

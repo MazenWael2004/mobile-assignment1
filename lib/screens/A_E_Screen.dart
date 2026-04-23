@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // <-- 1. Import Provider
+import 'package:intl/intl.dart';
 import '../../models/task_model.dart';
-import '../../services/database_operations.dart';
-import 'package:intl/intl.dart'; 
+import '../../Providers/taskProvider.dart'; // <-- 2. Import your TaskProvider
 
 class AddEditTaskScreen extends StatefulWidget {
-  final Task? task; // If null, we are adding. If not null, we are editing.
+  final Task? task;
 
-  const AddEditTaskScreen({super.key, this.task});
+  const AddEditTaskScreen({Key? key, this.task}) : super(key: key);
 
   @override
   _AddEditTaskScreenState createState() => _AddEditTaskScreenState();
@@ -20,13 +21,12 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
   late TextEditingController _descriptionController;
   late TextEditingController _dueDateController;
   
-  String _priority = 'Medium'; // Default priority
+  String _priority = 'Medium';
   final List<String> _priorities = ['Low', 'Medium', 'High'];
 
   @override
   void initState() {
     super.initState();
-    // Initialize controllers with existing data if we are editing, or empty if adding
     _titleController = TextEditingController(text: widget.task?.title ?? '');
     _descriptionController = TextEditingController(text: widget.task?.description ?? '');
     _dueDateController = TextEditingController(text: widget.task?.dueDate ?? '');
@@ -44,7 +44,6 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     super.dispose();
   }
 
-  // Native Date Picker
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -55,9 +54,9 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.light(
-              primary: primaryBlue, // Header background color
-              onPrimary: Colors.white, // Header text color
-              onSurface: Colors.black, // Body text color
+              primary: primaryBlue,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
             ),
           ),
           child: child!,
@@ -66,36 +65,37 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     );
     if (picked != null) {
       setState(() {
-        // Format the date to a readable string
         _dueDateController.text = DateFormat('yyyy-MM-dd').format(picked);
       });
     }
   }
 
   void _saveTask() async {
-    // This triggers the validators in the TextFormFields
     if (_formKey.currentState!.validate()) {
       Task taskToSave = Task(
-        id: widget.task?.id, // Keep the same ID if editing
+        id: widget.task?.id, 
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         dueDate: _dueDateController.text.trim(),
         priority: _priority,
         isCompleted: widget.task?.isCompleted ?? 0,
+        isFavorite: widget.task?.isFavorite ?? 0, 
       );
 
+
+      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+
       if (widget.task == null) {
-        await DatabaseHelper.instance.insertTask(taskToSave);
+        await taskProvider.addTask(taskToSave);
       } else {
-        await DatabaseHelper.instance.updateTask(taskToSave);
+        await taskProvider.updateTask(taskToSave);
       }
 
-      // Go back to the previous screen and pass 'true' to signal a refresh is needed
-      if (mounted) Navigator.pop(context, true);
+
+      if (mounted) Navigator.pop(context);
     }
   }
 
-  // A helper method to keep our UI code clean and matching the signup screen style
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
@@ -132,7 +132,6 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Title Field
               TextFormField(
                 controller: _titleController,
                 decoration: _inputDecoration('Task Title *'),
@@ -144,16 +143,12 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
                 },
               ),
               const SizedBox(height: 16),
-
-              // Description Field
               TextFormField(
                 controller: _descriptionController,
                 decoration: _inputDecoration('Task Description (Optional)'),
                 maxLines: 3,
               ),
               const SizedBox(height: 16),
-
-              // Due Date Field (Read-only, opens DatePicker)
               TextFormField(
                 controller: _dueDateController,
                 readOnly: true,
@@ -169,10 +164,8 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
                 },
               ),
               const SizedBox(height: 16),
-
-              // Priority Dropdown
               DropdownButtonFormField<String>(
-                initialValue: _priority,
+                value: _priority,
                 decoration: _inputDecoration('Priority Level'),
                 items: _priorities.map((String priority) {
                   return DropdownMenuItem(
@@ -187,8 +180,6 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
                 },
               ),
               const SizedBox(height: 32),
-
-              // Save Button
               ElevatedButton(
                 onPressed: _saveTask,
                 style: ElevatedButton.styleFrom(
