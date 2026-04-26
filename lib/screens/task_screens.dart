@@ -4,6 +4,7 @@ import '../Providers/taskProvider.dart';
 import './user_profile.dart';
 import 'A_E_Screen.dart';
 import 'FavoriteTaskScreen.dart';
+import 'DeadlineReminderScreen.dart';
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({Key? key}) : super(key: key);
@@ -46,6 +47,14 @@ appBar: AppBar(
               );
             },
           ),
+          IconButton(
+  icon: const Icon(Icons.alarm, color: Colors.black, size: 28),
+  onPressed: () {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (context) => const DeadlineReminderScreen(),
+    ));
+  },
+),
           IconButton(
             icon: const Icon(Icons.person_outline, color: Colors.black, size: 30),
             onPressed: () {
